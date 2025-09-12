@@ -1,0 +1,14 @@
+{
+  "symbols": ["EURUSD", "GBPUSD"],
+  "timeframe": ["TIMEFRAME_M3", "TIMEFRAME_M5"],  
+  "lot_size": 0.1,
+  "risk_reward": 2.0,
+  "swingL": 15,
+  "swingR": 10,
+  "sweep_tolerance": 0.00010,
+  "telegram": {
+    "enabled": true,
+    "token": "8422841452:AAH7uEJmWZWqHEP3v4Uuc1Hsvck5CMSZqNo",
+    "chat_id": "8426349009"
+  }
+}

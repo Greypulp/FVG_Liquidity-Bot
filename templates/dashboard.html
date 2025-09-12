@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trading Bot Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container mt-4">
+    <h2>Trading Bot Dashboard</h2>
+    <div class="row mb-3">
+        <div class="col">
+            <span class="badge bg-success">Bot: {{ bot_status }}</span>
+            <span class="badge bg-info">MT5: {{ mt5_status }}</span>
+        </div>
+        <div class="col text-end">
+            <span class="badge bg-primary">Daily PnL: ${{ pnl.daily }}</span>
+            <span class="badge bg-warning">Weekly PnL: ${{ pnl.weekly }}</span>
+        </div>
+    </div>
+    <div class="row">
+        {% for symbol in symbols %}
+        <div class="col-md-6 mb-4">
+            <h5>{{ symbol }} Live Chart</h5>
+            <canvas id="chart-{{ symbol }}" height="200"></canvas>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <h4>Open Trades</h4>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Price</th><th>SL</th><th>TP</th><th>Result</th></tr></thead>
+                <tbody>
+                {% for t in open_trades %}
+                <tr><td>{{ t.time }}</td><td>{{ t.symbol }}</td><td>{{ t.direction }}</td><td>{{ t.price }}</td><td>{{ t.sl }}</td><td>{{ t.tp }}</td><td>{{ t.result }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <h4>Closed Trades</h4>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Price</th><th>SL</th><th>TP</th><th>Result</th></tr></thead>
+                <tbody>
+                {% for t in closed_trades %}
+                <tr><td>{{ t.time }}</td><td>{{ t.symbol }}</td><td>{{ t.direction }}</td><td>{{ t.price }}</td><td>{{ t.sl }}</td><td>{{ t.tp }}</td><td>{{ t.result }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+let charts = {};
+function loadChart(symbol) {
+    fetch(`/api/chart/${symbol}`)
+        .then(r => r.json())
+        .then(data => {
+            const ctx = document.getElementById(`chart-${symbol}`).getContext('2d');
+            if (!charts[symbol]) {
+                charts[symbol] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: symbol,
+                            data: data.prices,
+                            borderColor: 'blue',
+                            fill: false
+                        }]
+                    },
+                    options: {scales: {x: {display: false}}}
+                });
+            } else {
+                charts[symbol].data.labels = data.labels;
+                charts[symbol].data.datasets[0].data = data.prices;
+                charts[symbol].update();
+            }
+        });
+}
+
+function refreshCharts() {
+    {% for symbol in symbols %}
+    loadChart("{{ symbol }}");
+    {% endfor %}
+}
+
+function refreshTrades() {
+    fetch("/api/trades")
+        .then(r => r.json())
+        .then(data => {
+            // Open trades
+            let openBody = document.querySelector("#open-trades-body");
+            openBody.innerHTML = "";
+            data.open.forEach(t => {
+                openBody.innerHTML += `<tr><td>${t.time}</td><td>${t.symbol}</td><td>${t.direction}</td><td>${t.price}</td><td>${t.sl}</td><td>${t.tp}</td><td>${t.result}</td></tr>`;
+            });
+            // Closed trades
+            let closedBody = document.querySelector("#closed-trades-body");
+            closedBody.innerHTML = "";
+            data.closed.forEach(t => {
+                closedBody.innerHTML += `<tr><td>${t.time}</td><td>${t.symbol}</td><td>${t.direction}</td><td>${t.price}</td><td>${t.sl}</td><td>${t.tp}</td><td>${t.result}</td></tr>`;
+            });
+        });
+}
+
+function refreshStatus() {
+    fetch("/api/status")
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById("bot-status").textContent = data.bot;
+            document.getElementById("mt5-status").textContent = data.mt5;
+            document.getElementById("daily-pnl").textContent = `$${data.pnl.daily}`;
+            document.getElementById("weekly-pnl").textContent = `$${data.pnl.weekly}`;
+        });
+}
+
+window.onload = function() {
+    refreshCharts();
+    setInterval(refreshCharts, 10000);
+    setInterval(refreshTrades, 10000);
+    setInterval(refreshStatus, 10000);
+};
+</script>
+</body>
+</html>

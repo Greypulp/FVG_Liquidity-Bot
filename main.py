@@ -7,8 +7,11 @@ try:
 except Exception:
     mt5 = None
 import requests
+from news_filter import NewsFilter
 
 BASE_DIR = os.path.dirname(__file__)
+news_filter = NewsFilter()
+news_filter.fetch_news()
 with open(os.path.join(BASE_DIR, "config.json"), "r") as f:
     cfg = json.load(f)
 
@@ -148,7 +151,8 @@ def place_order(symbol, direction, volume, sl_price, tp_price):
     request = {"action": mt5.TRADE_ACTION_DEAL, "symbol": symbol, "volume": float(volume), "type": mt5.ORDER_TYPE_BUY if direction=='buy' else mt5.ORDER_TYPE_SELL, "price": price, "sl": sl_price, "tp": tp_price, "deviation":20, "magic":MAGIC_NUMBER, "comment":"FVG+Swing Bot", "type_time": mt5.ORDER_TIME_GTC, "type_filling": mt5.ORDER_FILLING_RETURN}
     result = mt5.order_send(request)
     try:
-        pd.DataFrame([{"time":datetime.utcnow().isoformat(),"symbol":symbol,"direction":direction,"price":price,"volume":volume,"sl":sl_price,"tp":tp_price,"result":str(result)}]).to_csv(TRADES_CSV, mode='a', header=not os.path.exists(TRADES_CSV), index=False)
+        from datetime import UTC
+        pd.DataFrame([{"time":datetime.now(UTC).isoformat(),"symbol":symbol,"direction":direction,"price":price,"volume":volume,"sl":sl_price,"tp":tp_price,"result":str(result)}]).to_csv(TRADES_CSV, mode='a', header=not os.path.exists(TRADES_CSV), index=False)
     except Exception:
         pass
     return result
@@ -164,7 +168,8 @@ daily_stats = {'date': None, 'sl_total': 0.0, 'profit_total': 0.0, 'trades': 0, 
 
 def reset_daily_stats():
     global daily_stats
-    today = datetime.utcnow().date()
+    from datetime import UTC
+    today = datetime.now(UTC).date()
     daily_stats['date'] = today
     daily_stats['sl_total'] = 0.0
     daily_stats['profit_total'] = 0.0
@@ -207,8 +212,13 @@ def has_open_position(symbol):
 
 # --- Main Trading Logic ---
 def evaluate_and_trade(symbol, timeframe):
+    # Restrict trading during news events
+    if news_filter.is_news_near(symbol, window_minutes=30):
+        print(f"News event detected for {symbol}. Skipping trade setup.")
+        return
     global daily_stats
-    today = datetime.utcnow().date()
+    from datetime import UTC
+    today = datetime.now(UTC).date()
     if daily_stats['date'] != today:
         reset_daily_stats()
     if daily_stats['blocked']:
@@ -240,14 +250,15 @@ def evaluate_and_trade(symbol, timeframe):
     atr_mult = 1.2  # ATR multiplier for stop loss
     atr_sl = atr_val * atr_mult / 0.00001  # pips
     for fvg in reversed(fvg_list):
-        if (datetime.utcnow() - pd.to_datetime(fvg['time'])).total_seconds() > 60*60*24:
+        # Only process if fvg is within last 24 hours
+        if (datetime.now(UTC) - pd.to_datetime(fvg['time'])).total_seconds() > 60*60*24:
             continue
         if fvg['type']=='bull' and sweep['type']=='bull_sweep' and last_candle['close'] <= fvg['gap_high']:
             entry_price = mt5.symbol_info_tick(symbol).ask if mt5 else float(last_candle['close'])
             symbol_info = mt5.symbol_info(symbol) if mt5 else None
             sl_pips = {'atr': atr_val, 'mult': atr_mult}
             sl_price, tp_price = calc_sl_tp('buy', entry_price, sl_pips, symbol_info=symbol_info)
-            log_signal({"time": datetime.utcnow().isoformat(), "symbol": symbol, "setup": "bull_fvg+bull_sweep", "entry": entry_price, "sl": sl_price, "tp": tp_price})
+            log_signal({"time": datetime.now(UTC).isoformat(), "symbol": symbol, "setup": "bull_fvg+bull_sweep", "entry": entry_price, "sl": sl_price, "tp": tp_price})
             res = place_order(symbol, 'buy', LOT_SIZE, sl_price, tp_price)
             if res:
                 telegram_trade_open(symbol, 'buy', entry_price, sl_price, tp_price)
@@ -256,12 +267,12 @@ def evaluate_and_trade(symbol, timeframe):
                 update_daily_stats('SL', atr_sl, 0)
                 check_daily_block(atr_sl)
             return
-        if fvg['type']=='bear' and sweep['type']=='bear_sweep' and last_candle['close'] >= fvg['gap_low']:
+        elif fvg['type']=='bear' and sweep['type']=='bear_sweep' and last_candle['close'] >= fvg['gap_low']:
             entry_price = mt5.symbol_info_tick(symbol).bid if mt5 else float(last_candle['close'])
             symbol_info = mt5.symbol_info(symbol) if mt5 else None
             sl_pips = {'atr': atr_val, 'mult': atr_mult}
             sl_price, tp_price = calc_sl_tp('sell', entry_price, sl_pips, symbol_info=symbol_info)
-            log_signal({"time": datetime.utcnow().isoformat(), "symbol": symbol, "setup": "bear_fvg+bear_sweep", "entry": entry_price, "sl": sl_price, "tp": tp_price})
+            log_signal({"time": datetime.now(UTC).isoformat(), "symbol": symbol, "setup": "bear_fvg+bear_sweep", "entry": entry_price, "sl": sl_price, "tp": tp_price})
             res = place_order(symbol, 'sell', LOT_SIZE, sl_price, tp_price)
             if res:
                 telegram_trade_open(symbol, 'sell', entry_price, sl_price, tp_price)

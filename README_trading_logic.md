@@ -43,8 +43,9 @@ The bot is designed to trade forex pairs using MetaTrader5 (MT5) and Python. It 
 - The bot will not activate a new trade for a symbol if an open position for that symbol is in drawdown.
 - Only one position per symbol is allowed at a time.
 - News Trading:
-  - The bot does not currently restrict trading during news events.
-  - If news-based trade restrictions are required, this feature can be added to the logic.
+  - The bot restricts trading during high/medium impact news events for each symbol.
+  - Trades are not activated within 30 minutes before/after a detected news event.
+  - News events are fetched from the Forex Factory calendar and checked before trade setup.
 
 **Relevant functions:**
 - `check_daily_block`: Blocks trading for the day if SL threshold is exceeded.

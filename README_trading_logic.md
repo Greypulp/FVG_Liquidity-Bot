@@ -42,6 +42,9 @@ The bot is designed to trade forex pairs using MetaTrader5 (MT5) and Python. It 
   - No new trades are activated once the daily stop is triggered.
 - The bot will not activate a new trade for a symbol if an open position for that symbol is in drawdown.
 - Only one position per symbol is allowed at a time.
+- News Trading:
+  - The bot does not currently restrict trading during news events.
+  - If news-based trade restrictions are required, this feature can be added to the logic.
 
 **Relevant functions:**
 - `check_daily_block`: Blocks trading for the day if SL threshold is exceeded.

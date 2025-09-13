@@ -213,7 +213,7 @@ def has_open_position(symbol):
 # --- Main Trading Logic ---
 def evaluate_and_trade(symbol, timeframe):
     # Restrict trading during news events
-    if news_filter.is_news_near(symbol, window_minutes=30):
+    if news_filter.is_news_near(symbol, window_minutes=15):
         print(f"News event detected for {symbol}. Skipping trade setup.")
         return
     global daily_stats

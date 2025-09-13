@@ -44,7 +44,7 @@ The bot is designed to trade forex pairs using MetaTrader5 (MT5) and Python. It 
 - Only one position per symbol is allowed at a time.
 - News Trading:
   - The bot restricts trading during high/medium impact news events for each symbol.
-  - Trades are not activated within 30 minutes before/after a detected news event.
+  - Trades are not activated within 15 minutes before/after a detected news event.
   - News events are fetched from the Forex Factory calendar and checked before trade setup.
 
 **Relevant functions:**
